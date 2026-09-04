@@ -11,6 +11,8 @@
 import argparse, os, inspect, re, signal, subprocess, sys, time
 from subprocess import run
 
+sys.stdout.reconfigure(line_buffering=True)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('testrex', help="test name or regular expression")
 parser.add_argument("-q", action='store_true', help="usertests quick")
