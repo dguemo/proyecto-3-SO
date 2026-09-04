@@ -26,6 +26,7 @@ class QEMU(object):
         self.proc = subprocess.Popen(q, stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
+        os.set_blocking(self.proc.stdout.fileno(), False)
         self.output = ""
         self.outbytes = bytearray()
         self.reported = 0
@@ -71,8 +72,14 @@ class QEMU(object):
         self.proc.terminate()
 
     def read(self):
-        buf = os.read(self.proc.stdout.fileno(), 4096)
-        self.outbytes.extend(buf)
+        while True:
+            try:
+                buf = os.read(self.proc.stdout.fileno(), 4096)
+            except BlockingIOError:
+                break
+            if len(buf) == 0:  # qemu exited
+                break
+            self.outbytes.extend(buf)
         self.output = self.outbytes.decode("utf-8", "replace")
 
     def lines(self):
