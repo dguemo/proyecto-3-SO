@@ -27,7 +27,8 @@ class QEMU(object):
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
         self.output = ""
-        self.outbytes = bytearray()       
+        self.outbytes = bytearray()
+        self.reported = 0
         time.sleep(1)
 
     def reset_fs(self):
@@ -84,18 +85,26 @@ class QEMU(object):
         sys.exit(1)
 
     def match(self, *regexps, exit=True):
-        lines = self.lines()
-        last = -1
-        for i, line in enumerate(lines):
+        found = False
+        for line in self.lines():
             if any(re.match(r, line) for r in regexps):
                 print(line)
-                last = i
-        if last == -1 and exit:
+                found = True
+        if not found and exit:
             self.error(*regexps)
-        l = ""
-        if last >= 0:
-            l = lines[last]
-        return last >= 0, l
+        return found
+
+    # Print the lines matching regexp that have arrived since the last
+    # call.  A trailing partial line is left for the next call, so that
+    # each line is printed once, after all of it has been read.
+    def progress(self, regexp):
+        end = self.output.rfind("\n") + 1
+        if end <= self.reported:
+            return
+        for line in self.output[self.reported:end].splitlines():
+            if re.match(regexp, line):
+                print(line)
+        self.reported = end
 
     def monitor(self, *regexps, progress="", timeout):
         deadline = time.time() + timeout
@@ -105,12 +114,10 @@ class QEMU(object):
             if timeleft < 0:
                 self.error(*regexps)
             self.read()
-            ok, _ = self.match(*regexps, exit=False)
-            if ok:
+            if progress:
+                self.progress(progress)
+            if self.match(*regexps, exit=False):
                 return
-            ok, line = self.match(progress, exit=False)
-            if ok:
-                print(line)
 
 def crash_log():
     q = QEMU(True)
@@ -123,7 +130,7 @@ def recover_log():
     q = QEMU()
     time.sleep(2)
     q.read()
-    ok, _ = q.match('^recovering', exit=False)
+    ok = q.match('^recovering', exit=False)
     if ok:
         q.cmd("ls\n")
         time.sleep(2)
