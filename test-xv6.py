@@ -140,35 +140,27 @@ def recover_log():
     ok = q.match('^recovering', exit=False)
     if ok:
         q.cmd("ls\n")
-        time.sleep(2)
-        q.read()
-        q.match('f5')
+        q.monitor('f5', timeout=30)
     q.stop()
     return ok
 
 def forphan():
     q = QEMU(True)
     q.cmd("forphan\n")
-    time.sleep(5)
-    q.read()
-    q.match('wait')
+    q.monitor('wait', timeout=30)
     q.crash()
     q.stop()
 
 def dorphan():
     q = QEMU(True)
     q.cmd("dorphan\n")
-    time.sleep(5)
-    q.read()
-    q.match('wait')
+    q.monitor('wait', timeout=30)
     q.crash()
     q.stop()
 
 def recover_orphan():
     q = QEMU()
-    time.sleep(2)
-    q.read()
-    q.match('^ireclaim')
+    q.monitor('^ireclaim', timeout=30)
     q.stop()
 
 def test_log():
