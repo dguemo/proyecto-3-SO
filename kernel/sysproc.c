@@ -57,11 +57,9 @@ sys_sbrk(void)
     // memory, vmfault() will allocate it.
     if (addr + n < addr)
       return -1;
-    
-    // <<< CAMBIO AQUÍ: de TRAPFRAME a USYSCALL >>>
+    // el heap no puede crecer sobre la página USYSCALL.
     if (addr + n > USYSCALL)
       return -1;
-
     myproc()->sz += n;
   }
   return addr;
@@ -114,15 +112,15 @@ sys_uptime(void)
   return xticks;
 }
 
-
-//propias
+// Imprime la tabla de páginas del proceso que hace la llamada.
 uint64
 sys_vmprint(void)
 {
   return vmprint(myproc()->pagetable);
 }
 
-
+// Reporta en *mask cuáles de las npages páginas desde base fueron
+// accedidas desde la última consulta, y limpia su bit PTE_A.
 uint64
 sys_pgaccess(void)
 {
@@ -137,7 +135,9 @@ sys_pgaccess(void)
     return -1;
 
   struct proc *p = myproc();
-  if(base + (uint64)npages * PGSIZE > p->sz)
+  // Se compara con una resta para que una base enorme no desborde
+  // base + npages*PGSIZE y llegue a walk(), que entra en pánico >= MAXVA.
+  if(base >= p->sz || (uint64)npages * PGSIZE > p->sz - base)
     return -1;
 
   uint64 mask = 0;

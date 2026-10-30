@@ -490,7 +490,6 @@ ismapped(pagetable_t pagetable, uint64 va)
   return 0;
 }
 
-
 // Imprime recursivamente las PTEs válidas de una tabla de páginas.
 // level: 0 = raíz, 1 = intermedio, 2 = hojas.
 // va_base: dirección virtual donde empieza el rango de esta tabla.

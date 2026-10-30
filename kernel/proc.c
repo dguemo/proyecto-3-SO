@@ -132,14 +132,14 @@ found:
     return 0;
   }
 
-  // <<< MODIFICACIÓN INICIO: Reserva e inicialización de usyscall >>>
+  // Página compartida (solo lectura) con el espacio de usuario en
+  // USYSCALL: ugetpid() lee el pid de aquí sin hacer una syscall.
   if ((p->usyscall = (struct usyscall *)kalloc()) == 0) {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
   p->usyscall->pid = p->pid;
-  // <<< MODIFICACIÓN FIN >>>
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -167,13 +167,9 @@ freeproc(struct proc *p)
   if (p->trapframe)
     kfree((void *)p->trapframe);
   p->trapframe = 0;
-
-  // <<< MODIFICACIÓN INICIO: Liberación de memoria física de usyscall >>>
   if (p->usyscall)
     kfree((void *)p->usyscall);
   p->usyscall = 0;
-  // <<< MODIFICACIÓN FIN >>>
-
   if (p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -217,7 +213,9 @@ proc_pagetable(struct proc *p)
     return 0;
   }
 
-  // <<< MODIFICACIÓN INICIO: Mapeo de la página USYSCALL en la tabla de páginas del usuario >>>
+  // Mapear la página compartida justo debajo de TRAPFRAME. Sin PTE_W:
+  // el usuario puede leerla, y una escritura produce un fallo de página
+  // que vmfault() no atiende (ya está mapeada), así que el proceso muere.
   if (mappages(pagetable, USYSCALL, PGSIZE, (uint64)(p->usyscall),
                PTE_R | PTE_U) < 0) {
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
@@ -225,7 +223,6 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-  // <<< MODIFICACIÓN FIN >>>
 
   return pagetable;
 }
@@ -237,11 +234,9 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
-  
-  // <<< MODIFICACIÓN INICIO: Desmapeo de USYSCALL al liberar la tabla de páginas >>>
+  // Solo desmapear (do_free = 0): freeproc() libera la página física.
+  // Si no se desmapea, freewalk() encuentra una hoja y entra en pánico.
   uvmunmap(pagetable, USYSCALL, 1, 0);
-  // <<< MODIFICACIÓN FIN >>>
-
   uvmfree(pagetable, sz);
 }
 
@@ -616,7 +611,7 @@ wakeup(void *chan)
       p->chan = 0;
 
       // If this waiting process has gotten so far as to actually
-      // go to sleep, also set it back to RUNNABLE.
+      // go to sleep, also set it back to RUNNING.
       if (p->state == SLEEPING) {
         p->state = RUNNABLE;
       }
@@ -709,12 +704,12 @@ procdump(void)
 {
   static char *states[] = {
     // clang-format off
-    [UNUSED]   = "unused",
-    [USED]     = "used",
-    [SLEEPING] = "sleep ",
-    [RUNNABLE] = "runble",
-    [RUNNING]  = "run   ",
-    [ZOMBIE]   = "zombie"
+    [UNUSED]    = "unused",
+    [USED]      = "used",
+    [SLEEPING]  = "sleep ",
+    [RUNNABLE]  = "runble",
+    [RUNNING]   = "run   ",
+    [ZOMBIE]    = "zombie"
     // clang-format on
   };
   struct proc *p;

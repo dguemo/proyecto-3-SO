@@ -162,7 +162,8 @@ sbrklazy(int n)
   return sys_sbrk(n, SBRK_LAZY);
 }
 
-// <<< CAMBIO AQUÍ: de TRAPFRAME a USYSCALL >>>
+// Devuelve el pid leyendo la página que el kernel mapea en USYSCALL,
+// sin hacer ninguna llamada al sistema.
 int
 ugetpid(void)
 {
