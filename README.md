@@ -4,9 +4,9 @@
 
 ### Integrantes
 
-- Nombre completo 1
-- Nombre completo 2
-- Nombre completo 3
+- David Guerra Morales
+- Thomas Bedoya Rendon
+- Eder Ceballos Quiroz
 
 ### Curso
 
